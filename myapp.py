@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import pandas as pd
 
 # Configuration de l'API
 API_KEY = "7411eced-dc83-4346-8161-6b73528c432c"
@@ -27,17 +28,20 @@ def get_crypto_prices(symbols):
 st.title("Prix en Direct des Cryptomonnaies")
 st.sidebar.header("Configurer l'application")
 
-# Liste des cryptos à choisir
+# Liste des cryptomonnaies disponibles
 available_cryptos = [
     "BTC", "ETH", "BNB", "XRP", "SOL", "ADA", "DOGE", "DOT", "MATIC", "LTC",
     "SHIB", "AVAX", "UNI", "LINK", "ATOM"
 ]
-selected_cryptos = st.sidebar.multiselect(
-    "Choisissez jusqu'à 10 cryptomonnaies",
-    available_cryptos,
-    default=["BTC", "ETH", "BNB"]
-)
 
+# Affichage des cases à cocher pour les cryptos
+st.sidebar.subheader("Sélectionnez jusqu'à 10 cryptomonnaies")
+selected_cryptos = []
+for crypto in available_cryptos:
+    if st.sidebar.checkbox(crypto, value=False):
+        selected_cryptos.append(crypto)
+
+# Limite de sélection
 if len(selected_cryptos) > 10:
     st.warning("Vous ne pouvez sélectionner que 10 cryptomonnaies au maximum.")
 else:
@@ -45,6 +49,12 @@ else:
         st.write("Récupération des données...")
         prices = get_crypto_prices(selected_cryptos)
         if prices:
-            st.subheader("Prix actuels des cryptomonnaies (en USD)")
-            for symbol, price in prices.items():
-                st.write(f"**{symbol}** : ${price:,.2f}")
+            # Conversion des données en tableau
+            df = pd.DataFrame(
+                {
+                    "Cryptomonnaie": list(prices.keys()),
+                    "Prix (USD)": [f"${price:,.2f}" for price in prices.values()],
+                }
+            )
+            st.subheader("Prix actuels des cryptomonnaies")
+            st.table(df)
