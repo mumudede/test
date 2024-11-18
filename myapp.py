@@ -52,9 +52,14 @@ def save_to_history(data):
 
     if os.path.exists(HISTORY_FILE):
         existing_data = pd.read_csv(HISTORY_FILE)
+        # Vérifier si des données pour aujourd'hui existent déjà
+        if today in existing_data["Date"].values:
+            st.warning("Les données pour aujourd'hui ont déjà été historisées.")
+            return
         df = pd.concat([existing_data, df], ignore_index=True)
 
     df.to_csv(HISTORY_FILE, index=False)
+    st.success("Les données ont été historisées avec succès.")
 
 # Fonction pour charger l'historique
 def load_history():
@@ -108,7 +113,6 @@ if crypto_data:
     # Historisation des données sur clic de l'utilisateur
     if st.button("Actualiser et Historiser"):
         save_to_history(crypto_data)
-        st.success("Les données ont été historisées avec succès.")
 
 # Affichage de l'historique
 st.subheader("Historique des données")
