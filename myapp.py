@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # Configuration de l'API
 API_KEY = "7411eced-dc83-4346-8161-6b73528c432c"
@@ -76,6 +76,20 @@ def load_history():
     else:
         return pd.DataFrame()
 
+# Fonction pour formater les colonnes
+def format_history(df):
+    if df.empty:
+        return df
+    df["Prix (USD)"] = df["Prix (USD)"].apply(lambda x: f"${x:,.2f}")
+    df["Volume (24h)"] = df["Volume (24h)"].apply(lambda x: f"${x:,.2f}")
+    df["Variation (24h)"] = df["Variation (24h)"].apply(
+        lambda x: f"<span style='color:green'>{x:+.2f}%</span>" if x > 0 else f"<span style='color:red'>{x:+.2f}%</span>"
+    )
+    df["Variation (7j)"] = df["Variation (7j)"].apply(
+        lambda x: f"<span style='color:green'>{x:+.2f}%</span>" if x > 0 else f"<span style='color:red'>{x:+.2f}%</span>"
+    )
+    return df
+
 # Interface Streamlit
 today = datetime.now().strftime("%d/%m/%y")  # Format DD/MM/YY
 st.title(f"Tableau des Cryptomonnaies : {today}")
@@ -130,21 +144,29 @@ if st.button("Historiser"):
     else:
         st.warning("Veuillez actualiser les données avant de les historiser.")
 
+# Sidebar : Sélecteur de date
+st.sidebar.header("Filtrer l'historique")
+date_picker = st.sidebar.date_input(
+    "Sélectionnez une date pour filtrer l'historique :", value=datetime.now()
+)
+selected_date = date_picker.strftime("%d/%m/%y")
+
 # Affichage de l'historique
 st.subheader("Historique des données")
 history = load_history()
 
 if not history.empty:
-    # Application des règles d'affichage au tableau historique
-    formatted_history = history.copy()
-    formatted_history["Prix (USD)"] = formatted_history["Prix (USD)"].apply(lambda x: f"${x:,.2f}")
-    formatted_history["Volume (24h)"] = formatted_history["Volume (24h)"].apply(lambda x: f"${x:,.2f}")
-    formatted_history["Variation (24h)"] = formatted_history["Variation (24h)"].apply(
-        lambda x: f"<span style='color:green'>{x:+.2f}%</span>" if x > 0 else f"<span style='color:red'>{x:+.2f}%</span>"
-    )
-    formatted_history["Variation (7j)"] = formatted_history["Variation (7j)"].apply(
-        lambda x: f"<span style='color:green'>{x:+.2f}%</span>" if x > 0 else f"<span style='color:red'>{x:+.2f}%</span>"
-    )
+    # Limiter l'historique aux 30 derniers jours
+    history["Date"] = pd.to_datetime(history["Date"], format="%d/%m/%y")
+    cutoff_date = datetime.now() - timedelta(days=30)
+    history = history[history["Date"] >= cutoff_date]
+
+    # Filtrer par date sélectionnée
+    if selected_date:
+        history = history[history["Date"] == pd.to_datetime(selected_date, format="%d/%m/%y")]
+
+    # Formater les colonnes
+    formatted_history = format_history(history)
     st.write(
         formatted_history.to_html(escape=False, index=False),
         unsafe_allow_html=True,
