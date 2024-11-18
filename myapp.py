@@ -149,8 +149,6 @@ st.sidebar.header("Filtrer l'historique")
 date_picker = st.sidebar.date_input(
     "Sélectionnez une date pour filtrer l'historique :", value=datetime.now()
 )
-
-# Convertir la date en format français DD/MM/YY
 selected_date = date_picker.strftime("%d/%m/%y")
 
 # Affichage de l'historique
