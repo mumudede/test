@@ -56,6 +56,11 @@ def save_to_history(data):
         # Supprimer les données avec des dates au format YY-MM-DD
         existing_data = existing_data[~existing_data["Date"].str.match(r"^\d{4}-\d{2}-\d{2}$")]
 
+        # Vérifier si les données pour aujourd'hui existent déjà
+        if today in existing_data["Date"].values:
+            st.warning("Les données pour aujourd'hui ont déjà été historisées.")
+            return
+
         # Combiner les nouvelles données avec les anciennes
         combined_df = pd.concat([existing_data, new_df], ignore_index=True)
 
@@ -74,6 +79,15 @@ def load_history():
     else:
         return pd.DataFrame()
 
+# Fonction pour appliquer les couleurs au tableau historique
+def colorize_history(df):
+    def style_row(row):
+        row["Variation (24h)"] = f"<span style='color:green'>{row['Variation (24h)']:+.2f}%</span>" if row["Variation (24h)"] > 0 else f"<span style='color:red'>{row['Variation (24h)']:+.2f}%</span>"
+        row["Variation (7j)"] = f"<span style='color:green'>{row['Variation (7j)']:+.2f}%</span>" if row["Variation (7j)"] > 0 else f"<span style='color:red'>{row['Variation (7j)']:+.2f}%</span>"
+        return row
+
+    return df.apply(style_row, axis=1)
+
 # Interface Streamlit
 today = datetime.now().strftime("%d/%m/%y")  # Format DD/MM/YY
 st.title(f"Tableau des Cryptomonnaies : {today}")
@@ -81,43 +95,44 @@ st.title(f"Tableau des Cryptomonnaies : {today}")
 # Cryptomonnaies disponibles
 selected_cryptos = ["BTC", "ETH", "SOL", "LUNA"]
 
-# Récupération des données
-crypto_data = get_crypto_data(selected_cryptos)
+# Gestion des boutons
+if st.button("Actualiser"):
+    crypto_data = get_crypto_data(selected_cryptos)
+    if crypto_data:
+        # Préparation des données pour le tableau
+        data = []
+        for symbol, info in crypto_data.items():
+            price = f"${info['price']:,.2f}"
+            volume_24h = f"${info['volume_24h']:,.2f}"
 
-if crypto_data:
-    # Préparation des données pour le tableau
-    data = []
-    for symbol, info in crypto_data.items():
-        price = f"${info['price']:,.2f}"
-        volume_24h = f"${info['volume_24h']:,.2f}"
+            # Mise en couleur des variations
+            percent_change_24h = info["percent_change_24h"]
+            color_24h = "green" if percent_change_24h > 0 else "red"
+            percent_change_24h_colored = f"<span style='color:{color_24h}'>{percent_change_24h:+.2f}%</span>"
 
-        # Mise en couleur des variations
-        percent_change_24h = info["percent_change_24h"]
-        color_24h = "green" if percent_change_24h > 0 else "red"
-        percent_change_24h_colored = f"<span style='color:{color_24h}'>{percent_change_24h:+.2f}%</span>"
+            percent_change_7d = info["percent_change_7d"]
+            color_7d = "green" if percent_change_7d > 0 else "red"
+            percent_change_7d_colored = f"<span style='color:{color_7d}'>{percent_change_7d:+.2f}%</span>"
 
-        percent_change_7d = info["percent_change_7d"]
-        color_7d = "green" if percent_change_7d > 0 else "red"
-        percent_change_7d_colored = f"<span style='color:{color_7d}'>{percent_change_7d:+.2f}%</span>"
+            # Ajouter les données dans une liste
+            data.append([symbol, price, volume_24h, percent_change_24h_colored, percent_change_7d_colored])
 
-        # Ajouter les données dans une liste
-        data.append([symbol, price, volume_24h, percent_change_24h_colored, percent_change_7d_colored])
+        # Création du DataFrame
+        df = pd.DataFrame(
+            data,
+            columns=["Cryptomonnaie", "Prix (USD)", "Volume (24h)", "Variation (24h)", "Variation (7j)"],
+        )
 
-    # Création du DataFrame
-    df = pd.DataFrame(
-        data,
-        columns=["Cryptomonnaie", "Prix (USD)", "Volume (24h)", "Variation (24h)", "Variation (7j)"],
-    )
+        # Affichage des données actuelles avec mise en forme
+        st.subheader("Données actuelles")
+        st.write(
+            df.to_html(escape=False, index=False),
+            unsafe_allow_html=True,
+        )
 
-    # Affichage des données actuelles avec mise en forme
-    st.subheader("Données actuelles")
-    st.write(
-        df.to_html(escape=False, index=False),
-        unsafe_allow_html=True,
-    )
-
-    # Historisation des données sur clic de l'utilisateur
-    if st.button("Actualiser et Historiser"):
+if st.button("Historiser"):
+    crypto_data = get_crypto_data(selected_cryptos)
+    if crypto_data:
         save_to_history(crypto_data)
 
 # Affichage de l'historique
@@ -125,6 +140,27 @@ st.subheader("Historique des données")
 history = load_history()
 
 if not history.empty:
-    st.write(history)
+    # Application des couleurs au tableau historique
+    history = history.apply(
+        lambda row: pd.Series(
+            {
+                "Date": row["Date"],
+                "Cryptomonnaie": row["Cryptomonnaie"],
+                "Prix (USD)": row["Prix (USD)"],
+                "Volume (24h)": row["Volume (24h)"],
+                "Variation (24h)": f"<span style='color:green'>{row['Variation (24h)']:+.2f}%</span>"
+                if row["Variation (24h)"] > 0
+                else f"<span style='color:red'>{row['Variation (24h)']:+.2f}%</span>",
+                "Variation (7j)": f"<span style='color:green'>{row['Variation (7j)']:+.2f}%</span>"
+                if row["Variation (7j)"] > 0
+                else f"<span style='color:red'>{row['Variation (7j)']:+.2f}%</span>",
+            }
+        ),
+        axis=1,
+    )
+    st.write(
+        history.to_html(escape=False, index=False),
+        unsafe_allow_html=True,
+    )
 else:
     st.write("Aucun historique disponible.")
