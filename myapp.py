@@ -52,8 +52,13 @@ def save_to_history(data):
 
     if os.path.exists(HISTORY_FILE):
         existing_data = pd.read_csv(HISTORY_FILE)
+
+        # Supprimer les données avec des dates au format YY-MM-DD
+        existing_data = existing_data[~existing_data["Date"].str.match(r"^\d{4}-\d{2}-\d{2}$")]
+
         # Combiner les nouvelles données avec les anciennes
         combined_df = pd.concat([existing_data, new_df], ignore_index=True)
+
         # Supprimer les doublons basés sur Date et Cryptomonnaie
         combined_df.drop_duplicates(subset=["Date", "Cryptomonnaie"], keep="last", inplace=True)
     else:
@@ -80,6 +85,9 @@ selected_cryptos = ["BTC", "ETH", "SOL", "LUNA"]
 crypto_data = get_crypto_data(selected_cryptos)
 
 if crypto_data:
+    # Date actuelle
+    today = datetime.now().strftime("%d/%m/%y")  # Format DD/MM/YY
+
     # Préparation des données pour le tableau
     data = []
     for symbol, info in crypto_data.items():
@@ -96,12 +104,12 @@ if crypto_data:
         percent_change_7d_colored = f"<span style='color:{color_7d}'>{percent_change_7d:+.2f}%</span>"
 
         # Ajouter les données dans une liste
-        data.append([symbol, price, volume_24h, percent_change_24h_colored, percent_change_7d_colored])
+        data.append([today, symbol, price, volume_24h, percent_change_24h_colored, percent_change_7d_colored])
 
     # Création du DataFrame
     df = pd.DataFrame(
         data,
-        columns=["Cryptomonnaie", "Prix (USD)", "Volume (24h)", "Variation (24h)", "Variation (7j)"],
+        columns=["Date", "Cryptomonnaie", "Prix (USD)", "Volume (24h)", "Variation (24h)", "Variation (7j)"],
     )
 
     # Affichage des données actuelles avec mise en forme
