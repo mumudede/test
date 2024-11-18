@@ -37,7 +37,7 @@ def get_crypto_data(symbols):
 
 # Fonction pour sauvegarder les données dans un fichier CSV
 def save_to_history(data):
-    today = datetime.now().strftime("%Y-%m-%d")
+    today = datetime.now().strftime("%d/%m/%y")  # Format DD/MM/YY
     records = []
     for symbol, info in data.items():
         records.append({
@@ -48,17 +48,18 @@ def save_to_history(data):
             "Variation (24h)": info["percent_change_24h"],
             "Variation (7j)": info["percent_change_7d"],
         })
-    df = pd.DataFrame(records)
+    new_df = pd.DataFrame(records)
 
     if os.path.exists(HISTORY_FILE):
         existing_data = pd.read_csv(HISTORY_FILE)
-        # Vérifier si des données pour aujourd'hui existent déjà
-        if today in existing_data["Date"].values:
-            st.warning("Les données pour aujourd'hui ont déjà été historisées.")
-            return
-        df = pd.concat([existing_data, df], ignore_index=True)
+        # Combiner les nouvelles données avec les anciennes
+        combined_df = pd.concat([existing_data, new_df], ignore_index=True)
+        # Supprimer les doublons basés sur Date et Cryptomonnaie
+        combined_df.drop_duplicates(subset=["Date", "Cryptomonnaie"], keep="last", inplace=True)
+    else:
+        combined_df = new_df
 
-    df.to_csv(HISTORY_FILE, index=False)
+    combined_df.to_csv(HISTORY_FILE, index=False)
     st.success("Les données ont été historisées avec succès.")
 
 # Fonction pour charger l'historique
