@@ -75,8 +75,8 @@ def load_history():
         return pd.DataFrame()
 
 # Interface Streamlit
-st.title("Tableau des Cryptomonnaies : Prix, Volume et Variations")
-st.write("Données actualisées automatiquement ou sur demande.")
+today = datetime.now().strftime("%d/%m/%y")  # Format DD/MM/YY
+st.title(f"Tableau des Cryptomonnaies : {today}")
 
 # Cryptomonnaies disponibles
 selected_cryptos = ["BTC", "ETH", "SOL", "LUNA"]
@@ -85,9 +85,6 @@ selected_cryptos = ["BTC", "ETH", "SOL", "LUNA"]
 crypto_data = get_crypto_data(selected_cryptos)
 
 if crypto_data:
-    # Date actuelle
-    today = datetime.now().strftime("%d/%m/%y")  # Format DD/MM/YY
-
     # Préparation des données pour le tableau
     data = []
     for symbol, info in crypto_data.items():
@@ -104,12 +101,12 @@ if crypto_data:
         percent_change_7d_colored = f"<span style='color:{color_7d}'>{percent_change_7d:+.2f}%</span>"
 
         # Ajouter les données dans une liste
-        data.append([today, symbol, price, volume_24h, percent_change_24h_colored, percent_change_7d_colored])
+        data.append([symbol, price, volume_24h, percent_change_24h_colored, percent_change_7d_colored])
 
     # Création du DataFrame
     df = pd.DataFrame(
         data,
-        columns=["Date", "Cryptomonnaie", "Prix (USD)", "Volume (24h)", "Variation (24h)", "Variation (7j)"],
+        columns=["Cryptomonnaie", "Prix (USD)", "Volume (24h)", "Variation (24h)", "Variation (7j)"],
     )
 
     # Affichage des données actuelles avec mise en forme
