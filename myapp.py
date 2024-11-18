@@ -53,9 +53,6 @@ def save_to_history(data):
     if os.path.exists(HISTORY_FILE):
         existing_data = pd.read_csv(HISTORY_FILE)
 
-        # Supprimer les données avec des dates au format YY-MM-DD
-        existing_data = existing_data[~existing_data["Date"].str.match(r"^\d{4}-\d{2}-\d{2}$")]
-
         # Vérifier si les données pour aujourd'hui existent déjà
         if today in existing_data["Date"].values:
             st.warning("Les données pour aujourd'hui ont déjà été historisées.")
@@ -79,18 +76,13 @@ def load_history():
     else:
         return pd.DataFrame()
 
-# Fonction pour appliquer les couleurs au tableau historique
-def colorize_history(df):
-    def style_row(row):
-        row["Variation (24h)"] = f"<span style='color:green'>{row['Variation (24h)']:+.2f}%</span>" if row["Variation (24h)"] > 0 else f"<span style='color:red'>{row['Variation (24h)']:+.2f}%</span>"
-        row["Variation (7j)"] = f"<span style='color:green'>{row['Variation (7j)']:+.2f}%</span>" if row["Variation (7j)"] > 0 else f"<span style='color:red'>{row['Variation (7j)']:+.2f}%</span>"
-        return row
-
-    return df.apply(style_row, axis=1)
-
 # Interface Streamlit
 today = datetime.now().strftime("%d/%m/%y")  # Format DD/MM/YY
 st.title(f"Tableau des Cryptomonnaies : {today}")
+
+# Initialisation des données actuelles dans session_state
+if "current_data" not in st.session_state:
+    st.session_state["current_data"] = None
 
 # Cryptomonnaies disponibles
 selected_cryptos = ["BTC", "ETH", "SOL", "LUNA"]
@@ -118,48 +110,43 @@ if st.button("Actualiser"):
             data.append([symbol, price, volume_24h, percent_change_24h_colored, percent_change_7d_colored])
 
         # Création du DataFrame
-        df = pd.DataFrame(
+        st.session_state["current_data"] = pd.DataFrame(
             data,
             columns=["Cryptomonnaie", "Prix (USD)", "Volume (24h)", "Variation (24h)", "Variation (7j)"],
         )
 
-        # Affichage des données actuelles avec mise en forme
-        st.subheader("Données actuelles")
-        st.write(
-            df.to_html(escape=False, index=False),
-            unsafe_allow_html=True,
-        )
+if st.session_state["current_data"] is not None:
+    # Affichage des données actuelles avec mise en forme
+    st.subheader("Données actuelles")
+    st.write(
+        st.session_state["current_data"].to_html(escape=False, index=False),
+        unsafe_allow_html=True,
+    )
 
 if st.button("Historiser"):
-    crypto_data = get_crypto_data(selected_cryptos)
-    if crypto_data:
+    if st.session_state["current_data"] is not None:
+        crypto_data = get_crypto_data(selected_cryptos)
         save_to_history(crypto_data)
+    else:
+        st.warning("Veuillez actualiser les données avant de les historiser.")
 
 # Affichage de l'historique
 st.subheader("Historique des données")
 history = load_history()
 
 if not history.empty:
-    # Application des couleurs au tableau historique
-    history = history.apply(
-        lambda row: pd.Series(
-            {
-                "Date": row["Date"],
-                "Cryptomonnaie": row["Cryptomonnaie"],
-                "Prix (USD)": row["Prix (USD)"],
-                "Volume (24h)": row["Volume (24h)"],
-                "Variation (24h)": f"<span style='color:green'>{row['Variation (24h)']:+.2f}%</span>"
-                if row["Variation (24h)"] > 0
-                else f"<span style='color:red'>{row['Variation (24h)']:+.2f}%</span>",
-                "Variation (7j)": f"<span style='color:green'>{row['Variation (7j)']:+.2f}%</span>"
-                if row["Variation (7j)"] > 0
-                else f"<span style='color:red'>{row['Variation (7j)']:+.2f}%</span>",
-            }
-        ),
-        axis=1,
+    # Application des règles d'affichage au tableau historique
+    formatted_history = history.copy()
+    formatted_history["Prix (USD)"] = formatted_history["Prix (USD)"].apply(lambda x: f"${x:,.2f}")
+    formatted_history["Volume (24h)"] = formatted_history["Volume (24h)"].apply(lambda x: f"${x:,.2f}")
+    formatted_history["Variation (24h)"] = formatted_history["Variation (24h)"].apply(
+        lambda x: f"<span style='color:green'>{x:+.2f}%</span>" if x > 0 else f"<span style='color:red'>{x:+.2f}%</span>"
+    )
+    formatted_history["Variation (7j)"] = formatted_history["Variation (7j)"].apply(
+        lambda x: f"<span style='color:green'>{x:+.2f}%</span>" if x > 0 else f"<span style='color:red'>{x:+.2f}%</span>"
     )
     st.write(
-        history.to_html(escape=False, index=False),
+        formatted_history.to_html(escape=False, index=False),
         unsafe_allow_html=True,
     )
 else:
